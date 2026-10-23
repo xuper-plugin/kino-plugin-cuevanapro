@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.3
+
+- `resolve` now asks whether a stream's address answers before handing it over and, when its host is down (a CDN node timing out), moves on to the next server instead of ending in "could not connect". (Found on Yosuga no Sora episode 1 in SoloLatino.)
+  / `resolve` ahora comprueba que la dirección del video responde y, si su servidor está caído, pasa al siguiente en vez de terminar en «no se pudo conectar».
+
 ## 0.1.2
 
 - A search that finds nothing now tries the work's original title and the other titles Kino knows (`originalTitle`, `altTitles`) and the typed text cut at its first colon or dash, and an empty answer is no longer kept in the cache for ten minutes. (Found searching "Yosuga no Sora" in SoloLatino.)

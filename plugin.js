@@ -312,6 +312,16 @@ async function searchWithTerms(arg, one) {
   return [];
 }
 
+// src/util/probe.js
+async function playable(kino2, out, ms = 6e3) {
+  try {
+    const r = await kino2.fetch(out.url, { headers: { ...out.headers || {} }, timeoutMs: ms });
+    return r.ok || r.status === 401 || r.status === 403;
+  } catch (e) {
+    return !!(e && e.code === "host_not_allowed");
+  }
+}
+
 // src/plugin.js
 var CACHE_MS = 10 * 60 * 1e3;
 var RESOLVE_MS = 6e4;
@@ -563,7 +573,7 @@ async function open(server, req, budget) {
   const media = page && page.media || [];
   const best = media.find((x) => /m3u8/i.test(x.url)) || media[0];
   if (!best) return null;
-  return { url: best.url, mime: best.mime || (/\.mp4/i.test(best.url) ? "video/mp4" : HLS), headers: best.headers || { Referer: embed } };
+  return { captured: true, url: best.url, mime: best.mime || (/\.mp4/i.test(best.url) ? "video/mp4" : HLS), headers: best.headers || { Referer: embed } };
 }
 var labelOf = (s) => `${t(s.lang)} \xB7 ${SERVER_NAME[s.host.toLowerCase()] || s.host}`;
 async function resolve(ref) {
@@ -584,6 +594,10 @@ async function resolve(ref) {
       const out = await open(s, req, budget);
       if (!out) {
         failures.push(`${s.host}: no stream`);
+        continue;
+      }
+      if (!out.captured && !await playable(kino, { url: out.url, headers: { "User-Agent": UA, ...out.headers || {} } })) {
+        failures.push(`${s.host}: address does not answer`);
         continue;
       }
       const stream = { url: out.url, mime: out.mime, headers: { "User-Agent": UA, ...out.headers || {} }, label: labelOf(s) };
