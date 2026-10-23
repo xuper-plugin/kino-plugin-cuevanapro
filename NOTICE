@@ -1,0 +1,4 @@
+Kino plugin "Cuevana Pro". Site behaviour (the listing pages, the `__NEXT_DATA__` data of a title, the episode pages, the `player.php` pages and the
+mirror-domain table) was read from the live site and from the CloudStream provider "CuevanaProvider" in redblacker8/storm-ext (a fork of
+Stormunblessed/storm-ext); no code was copied from it. The extractors, the packer reader and the request helper are adapted from the Kino plugin
+"Latino" (xuper-plugin/kino-plugin-latino, Apache-2.0), by the same author.

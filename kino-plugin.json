@@ -1,0 +1,110 @@
+{
+  "id": "cuevanapro",
+  "name": "Cuevana Pro",
+  "version": "0.1.0",
+  "apiVersion": 9,
+  "entry": "plugin.js",
+  "icon": "icon.png",
+  "description": "Películas y series en español latino, castellano o en su idioma original de Cuevana (cuevana3.eu): sección propia, géneros, estrenos, tendencias, búsqueda y varios servidores por título.",
+  "author": "xuper-plugin",
+  "homepage": "https://github.com/xuper-plugin/kino-plugin-cuevanapro",
+  "hosts": [
+    "cuevana3.eu",
+    "wv3.cuevana3.eu",
+    "player.cuevana3.eu",
+    "streamwish.to",
+    "embedwish.com",
+    "hglink.to",
+    "hlswish.com",
+    "streamwish.com",
+    "strwish.com",
+    "wishembed.com",
+    "filelions.com",
+    "filelions.to",
+    "vibuxer.com",
+    "vidhide.com",
+    "vidhidepro.com",
+    "vidhideplus.com",
+    "vidhidefast.com",
+    "callistanise.com",
+    "dintezuvio.com",
+    "minochinos.com",
+    "morencius.com",
+    "voe.sx"
+  ],
+  "capabilities": [
+    "search",
+    "home",
+    "browse",
+    "episodes",
+    "resolve",
+    "download",
+    "scopedSearch"
+  ],
+  "browser": true,
+  "streamHosts": "any",
+  "categories": [
+    "movies",
+    "series"
+  ],
+  "color": "#2563EB",
+  "section": {
+    "label": "Cuevana Pro",
+    "labelEn": "Cuevana Pro"
+  },
+  "theme": {
+    "accent": "#3B82F6",
+    "onAccent": "#06122B",
+    "background": "#08101F",
+    "surface": "#111C33",
+    "highlight": "#93C5FD"
+  },
+  "settings": [
+    {
+      "key": "audioSection",
+      "type": "section",
+      "label": "Idioma",
+      "labelEn": "Language",
+      "hint": "Cada título puede traer varios idiomas; Kino abre primero el que elijas y, si falla, los demás.",
+      "hintEn": "A title may come in several languages; Kino opens the one you pick first and, if it fails, the others."
+    },
+    {
+      "key": "audio",
+      "type": "select",
+      "label": "Idioma preferido",
+      "labelEn": "Preferred language",
+      "default": "latino",
+      "options": [
+        {
+          "value": "latino",
+          "label": "Latino",
+          "labelEn": "Latino"
+        },
+        {
+          "value": "spanish",
+          "label": "Castellano",
+          "labelEn": "Castilian"
+        },
+        {
+          "value": "english",
+          "label": "Inglés",
+          "labelEn": "English"
+        }
+      ]
+    },
+    {
+      "key": "info",
+      "type": "status",
+      "label": "Estado",
+      "labelEn": "Status"
+    },
+    {
+      "key": "clearCache",
+      "type": "action",
+      "label": "Vaciar caché",
+      "labelEn": "Clear cache",
+      "confirm": "¿Vaciar la caché de listas?",
+      "confirmEn": "Clear the list cache?"
+    }
+  ]
+}
