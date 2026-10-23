@@ -95,6 +95,7 @@ function parseTitle(html) {
     episodes: (s.episodes || []).map((e) => ({ number: Number(e.number), title: String(e.title || ""), thumb: sized(e.image, "w300"), date: String(e.releaseDate || "").slice(0, 10) }))
   })).filter((s) => s.episodes.length);
   return {
+    tmdb: Number(t2.TMDbId) > 0 ? Number(t2.TMDbId) : void 0,
     kind: p.thisMovie ? "movie" : "series",
     slug: t2.slug && t2.slug.name ? String(t2.slug.name) : "",
     title: String(t2.titles.name || ""),
@@ -375,7 +376,7 @@ var hash36 = (s) => {
   for (const ch of String(s)) h = (h * 33 ^ ch.codePointAt(0)) >>> 0;
   return h.toString(36);
 };
-function toItem(card) {
+function toItem(card, genreName) {
   const item = {
     id: "cp-" + (fold(card.slug).replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 90) || "t") + "-" + hash36(card.kind + card.slug),
     ref: (card.kind === "movie" ? "m:" : "s:") + card.slug,
@@ -385,6 +386,7 @@ function toItem(card) {
   if (card.poster) item.poster = card.poster;
   if (card.year) item.year = String(card.year);
   if (card.rating) item.rating = card.rating;
+  if (genreName) item.genres = [genreName];
   return item;
 }
 var LISTS = {
@@ -403,7 +405,7 @@ function refOf(ref) {
     return l ? { ...l, title: t(l.titleKey) } : null;
   }
   const g = GENRES.find((x) => x[0] === m[2]);
-  return g ? { path: "/genero/" + g[0], title: g[1], genre: void 0 } : null;
+  return g ? { path: "/genero/" + g[0], title: g[1], genre: void 0, genreName: g[1] } : null;
 }
 async function listPage(def, page) {
   const url = SITE + def.path + (page > 1 ? "/page/" + page : "");
@@ -421,7 +423,7 @@ var safeRow = async (id, fn) => {
 async function rowOf(id, ref, genre) {
   const def = refOf(ref);
   const { cards } = await listPage(def, 1);
-  const items = cards.slice(0, 20).map(toItem);
+  const items = cards.slice(0, 20).map((c) => toItem(c, def.genreName));
   return items.length ? { id, title: def.title, items, ref, genre: genre || def.genre || "peliculas" } : null;
 }
 async function home() {
@@ -438,7 +440,7 @@ async function browse(ref, cursor) {
   if (!def) return { items: [] };
   const page = cursor ? Math.max(1, parseInt(cursor, 10) || 1) : 1;
   const { cards, more } = await listPage(def, page);
-  return { items: cards.map(toItem), next: more ? String(page + 1) : void 0 };
+  return { items: cards.map((c) => toItem(c, def.genreName)), next: more ? String(page + 1) : void 0 };
 }
 async function search(arg) {
   const q = String((typeof arg === "string" ? arg : arg && arg.q) || "").trim();
@@ -446,7 +448,7 @@ async function search(arg) {
   if (q.length < 2) return [];
   const cards = await cached("s:" + q.toLowerCase(), async () => parseCards(await getPage(`${SITE}/search?q=${encodeURIComponent(q)}`)));
   const only = within ? within.genre === "peliculas" ? "movie" : within.genre === "series" ? "series" : null : null;
-  return cards.filter((c) => !only || c.kind === only).slice(0, 40).map(toItem);
+  return cards.filter((c) => !only || c.kind === only).slice(0, 40).map((c) => toItem(c));
 }
 async function section({ tab } = {}) {
   const tabs = [{ id: "novedades", label: t("news") }, { id: "peliculas", label: t("movies") }, { id: "series", label: t("series") }, { id: "estrenos", label: t("premieres") }, { id: "generos", label: t("genres") }];
@@ -477,7 +479,7 @@ async function details(ref) {
   if (!slug) return null;
   const p = await titlePage("movie", slug);
   if (!p) return null;
-  const out = { overview: p.overview || void 0, genres: p.genres.length ? p.genres : void 0, poster: p.poster || void 0, backdrop: p.backdrop || void 0, year: p.year ? String(p.year) : void 0, rating: p.rating, runtimeMinutes: p.runtimeMinutes };
+  const out = { overview: p.overview || void 0, genres: p.genres.length ? p.genres : void 0, poster: p.poster || void 0, backdrop: p.backdrop || void 0, year: p.year ? String(p.year) : void 0, rating: p.rating, runtimeMinutes: p.runtimeMinutes, ids: p.tmdb ? { tmdb: p.tmdb } : void 0 };
   for (const k of Object.keys(out)) if (out[k] === void 0) delete out[k];
   return out;
 }
@@ -487,7 +489,7 @@ async function episodes(ref) {
   const p = await titlePage("series", slug);
   const list = p ? p.seasons.flatMap((s) => s.episodes.map((e) => ({ ...e, season: s.season }))) : [];
   if (!list.length) throw kino.error("not_found", "no episodes for " + slug, { userMessage: t("noEpisodes") });
-  const series = { title: p.title || void 0, poster: p.poster || void 0, backdrop: p.backdrop || void 0, overview: p.overview || void 0, genres: p.genres.length ? p.genres : void 0, year: p.year ? String(p.year) : void 0, rating: p.rating };
+  const series = { title: p.title || void 0, poster: p.poster || void 0, backdrop: p.backdrop || void 0, overview: p.overview || void 0, genres: p.genres.length ? p.genres : void 0, year: p.year ? String(p.year) : void 0, rating: p.rating, ids: p.tmdb ? { tmdb: p.tmdb } : void 0 };
   for (const k of Object.keys(series)) if (series[k] === void 0) delete series[k];
   return {
     series,

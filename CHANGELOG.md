@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.1
+
+- Genre pages carry their genre on every title, the TMDB id of each title goes to its page (`ids.tmdb`, so Kino matches its art and cast exactly) and `telemetry` is added.
+  / Cada título de un género lleva su género, el id de TMDB va a la ficha y se agrega `telemetry`.
+
 ## 0.1.0
 
 - First version, built on Kino's plugin API from the start and following the CloudStream provider "Cuevana": **Home rows** (updated, premieres, trending),

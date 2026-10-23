@@ -72,7 +72,7 @@ export function parseTitle(html) {
     season: Number(s.number), episodes: (s.episodes || []).map((e) => ({ number: Number(e.number), title: String(e.title || ""), thumb: sized(e.image, "w300"), date: String(e.releaseDate || "").slice(0, 10) })),
   })).filter((s) => s.episodes.length);
   return {
-    kind: p.thisMovie ? "movie" : "series", slug: t.slug && t.slug.name ? String(t.slug.name) : "", title: String(t.titles.name || ""), original: String((t.titles.original && t.titles.original.name) || ""),
+    tmdb: Number(t.TMDbId) > 0 ? Number(t.TMDbId) : undefined, kind: p.thisMovie ? "movie" : "series", slug: t.slug && t.slug.name ? String(t.slug.name) : "", title: String(t.titles.name || ""), original: String((t.titles.original && t.titles.original.name) || ""),
     overview: String(t.overview || "").trim(), genres: (t.genres || []).map((g) => String(g.name)), year: yearOf(t.releaseDate), runtimeMinutes: t.runtime ? Number(t.runtime) : undefined,
     rating: t.rate && t.rate.average ? Number(t.rate.average) : undefined, poster: sized(t.images && t.images.poster, "w500"), backdrop: sized(t.images && t.images.backdrop, "w1280"), seasons,
   };
