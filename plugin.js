@@ -287,6 +287,31 @@ function extractorFor(embedUrl) {
 }
 var HOSTS3 = Object.values(TABLE).flatMap((m) => m.HOSTS);
 
+// src/util/terms.js
+function searchTerms(arg) {
+  const q = String((typeof arg === "string" ? arg : arg && arg.q) || "").trim();
+  const norm = (s) => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
+  const out = [];
+  const add = (s) => {
+    const v = String(s || "").trim();
+    if (v.length >= 2 && !out.some((x) => norm(x) === norm(v))) out.push(v);
+  };
+  add(q);
+  if (arg && typeof arg === "object") {
+    add(arg.originalTitle);
+    for (const a of Array.isArray(arg.altTitles) ? arg.altTitles : []) add(a);
+  }
+  add(q.split(/\s*[:\-–—]\s*/)[0]);
+  return out.slice(0, 4);
+}
+async function searchWithTerms(arg, one) {
+  for (const q of searchTerms(arg)) {
+    const found = await one(arg && typeof arg === "object" ? { ...arg, q } : q);
+    if (found.length) return found;
+  }
+  return [];
+}
+
 // src/plugin.js
 var CACHE_MS = 10 * 60 * 1e3;
 var RESOLVE_MS = 6e4;
@@ -364,6 +389,7 @@ async function cached(key, fn) {
   } catch (_) {
   }
   const v = await fn();
+  if (Array.isArray(v) && !v.length) return v;
   try {
     kino.storage.set("c:" + key, JSON.stringify({ at: Date.now(), v }), { ttlMs: CACHE_MS });
   } catch (_) {
@@ -442,7 +468,7 @@ async function browse(ref, cursor) {
   const { cards, more } = await listPage(def, page);
   return { items: cards.map((c) => toItem(c, def.genreName)), next: more ? String(page + 1) : void 0 };
 }
-async function search(arg) {
+async function searchOne(arg) {
   const q = String((typeof arg === "string" ? arg : arg && arg.q) || "").trim();
   const within = typeof arg === "object" && arg && arg.within ? refOf(arg.within) : null;
   if (q.length < 2) return [];
@@ -450,6 +476,7 @@ async function search(arg) {
   const only = within ? within.genre === "peliculas" ? "movie" : within.genre === "series" ? "series" : null : null;
   return cards.filter((c) => !only || c.kind === only).slice(0, 40).map((c) => toItem(c));
 }
+var search = (arg) => searchWithTerms(arg, searchOne);
 async function section({ tab } = {}) {
   const tabs = [{ id: "novedades", label: t("news") }, { id: "peliculas", label: t("movies") }, { id: "series", label: t("series") }, { id: "estrenos", label: t("premieres") }, { id: "generos", label: t("genres") }];
   const chosen = tabs.some((x) => x.id === tab) ? tab : "novedades";
