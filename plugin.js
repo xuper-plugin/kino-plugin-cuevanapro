@@ -271,8 +271,79 @@ async function extract2(embedUrl, req, kino2) {
   return { url, mime: HLS_MIME, headers: { Referer: u.origin + "/", Origin: u.origin }, ...pageExtras(html, u.origin) };
 }
 
+// src/extractors/voe.js
+var voe_exports = {};
+__export(voe_exports, {
+  HOSTS: () => HOSTS3,
+  decodeVoe: () => decodeVoe,
+  extract: () => extract3
+});
+var HOSTS3 = ["voe.sx"];
+var JUNK = ["@$", "^^", "~@", "%?", "*~", "!!", "#&"];
+var rot13 = (s) => s.replace(/[a-z]/gi, (c) => {
+  const b = c <= "Z" ? 65 : 97;
+  return String.fromCharCode((c.charCodeAt(0) - b + 13) % 26 + b);
+});
+function decodeVoe(enc) {
+  let s = rot13(enc);
+  for (const j of JUNK) s = s.split(j).join("");
+  s = atob(s);
+  s = [...s].map((c) => String.fromCharCode(c.charCodeAt(0) - 3)).join("");
+  s = [...s].reverse().join("");
+  return JSON.parse(decodeURIComponent(escape(atob(s))));
+}
+var redirectOf = (html) => (/window\.location\.href\s*=\s*'([^']+)'/.exec(html) || [])[1] || null;
+var humanCheck = (html) => /altcha|Confirm you(?:'|&#0?39;|’)re human/i.test(html);
+async function extract3(embedUrl, req, kino2) {
+  const log = (...a) => {
+    if (kino2) kino2.log("[voe]", ...a);
+  };
+  const first = await req(embedUrl, { headers: { Referer: embedUrl } });
+  if (!first.ok) {
+    log("embed", first.status);
+    return null;
+  }
+  let html = first.text();
+  const next = redirectOf(html);
+  if (next) {
+    try {
+      const r = await req(next, { headers: { Referer: embedUrl } });
+      if (!r.ok) {
+        log("player", r.status);
+        return null;
+      }
+      html = r.text();
+    } catch (e) {
+      if (e && e.code === "host_not_allowed") {
+        log("rotating host not reachable here");
+        return void 0;
+      }
+      throw e;
+    }
+  }
+  if (humanCheck(html)) {
+    log("human check");
+    return null;
+  }
+  const j = /<script type="application\/json">\s*\["([^"]+)"\]/.exec(html);
+  if (j) {
+    try {
+      const d = decodeVoe(j[1]);
+      const url = d.source || d.direct_access_url;
+      if (url) return { url, mime: /\.mp4(?:[?#]|$)/.test(url) ? "video/mp4" : HLS_MIME, headers: { Referer: embedUrl } };
+    } catch (_) {
+    }
+  }
+  const h = /'hls'\s*:\s*'([^']+)'/.exec(html) || /(https?:\/\/[^"'\s]+\.mp4[^"'\s]*)/.exec(html);
+  if (!h) {
+    log("no stream in page");
+    return null;
+  }
+  return { url: h[1], mime: /\.mp4(?:[?#]|$)/.test(h[1]) ? "video/mp4" : HLS_MIME, headers: { Referer: embedUrl } };
+}
+
 // src/extractors/index.js
-var TABLE = { streamwish: streamwish_exports, vidhide: vidhide_exports };
+var TABLE = { streamwish: streamwish_exports, vidhide: vidhide_exports, voe: voe_exports };
 function extractorFor(embedUrl) {
   let host;
   try {
@@ -285,7 +356,7 @@ function extractorFor(embedUrl) {
   }
   return null;
 }
-var HOSTS3 = Object.values(TABLE).flatMap((m) => m.HOSTS);
+var HOSTS4 = Object.values(TABLE).flatMap((m) => m.HOSTS);
 
 // src/util/terms.js
 function searchTerms(arg) {
@@ -566,7 +637,10 @@ async function open(server, req, budget) {
   const embed = parsePlayer(await player.text());
   if (!embed) return null;
   const ex = extractorFor(embed);
-  if (ex) return ex.extract(embed, req, kino);
+  if (ex) {
+    const out = await ex.extract(embed, req, kino);
+    if (out !== void 0) return out;
+  }
   if (!kino.browser || typeof kino.browser.capture !== "function" || budget.captures <= 0) return null;
   budget.captures -= 1;
   const page = await kino.browser.capture(embed, { timeoutMs: CAPTURE_MS, match: "\\.m3u8|\\.mp4", headers: { Referer: SITE + "/" } });

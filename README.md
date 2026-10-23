@@ -14,7 +14,7 @@ En Kino: **Ajustes ▸ Plugins ▸ Agregar**, y pega:
 xuper-plugin/kino-plugin-cuevanapro
 ```
 
-Kino pide dos permisos en rojo: *abrir páginas web ocultas para encontrar el video* y *reproducir video desde cualquier servidor que indique*.
+Kino pide tres permisos en rojo: *abrir páginas web ocultas para encontrar el video*, *reproducir video desde cualquier servidor que indique* y *conectarse a cualquier servidor público* (solo https, nunca tu red local).
 Hacen falta para VOE, que arma su dirección con JavaScript, y para las direcciones de video que cambian de dominio.
 
 ## Qué trae

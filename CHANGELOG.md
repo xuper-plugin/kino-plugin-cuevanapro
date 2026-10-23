@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.4
+
+- VOE is now read with plain requests first, the way CloudStream's own extractor does (the page behind `voe.sx`'s redirect carries the video in a JSON script), and the hidden browser is only tried when that host cannot be reached. A page that asks for a human check is skipped, never solved. Needs the red permission to connect to any public server (`fetchHosts`), because VOE's redirect domain rotates.
+  / VOE se lee primero con peticiones normales, como el extractor de CloudStream, y el navegador oculto solo se prueba si no se puede llegar a ese servidor. Una página que pide verificar que eres humano se salta, nunca se resuelve. Pide el permiso en rojo de conectarse a cualquier servidor público (`fetchHosts`), porque el dominio de VOE cambia.
+
 ## 0.1.3
 
 - `resolve` now asks whether a stream's address answers before handing it over and, when its host is down (a CDN node timing out), moves on to the next server instead of ending in "could not connect". (Found on Yosuga no Sora episode 1 in SoloLatino.)
