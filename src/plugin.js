@@ -181,16 +181,28 @@ export async function browse(ref, cursor) {
   return { items: cards.map((c) => toItem(c, def.genreName)), next: more ? String(page + 1) : undefined };
 }
 
-async function searchOne(arg) {
+async function searchOne(arg, ms) {
   const q = String((typeof arg === "string" ? arg : arg && arg.q) || "").trim();
   const within = typeof arg === "object" && arg && arg.within ? refOf(arg.within) : null;
   if (q.length < 2) return [];
-  const cards = await cached("s:" + q.toLowerCase(), async () => parseCards(await getPage(`${SITE}/search?q=${encodeURIComponent(q)}`)));
+  const cards = await cached("s:" + q.toLowerCase(), async () => parseCards(await getPage(`${SITE}/search?q=${encodeURIComponent(q)}`, undefined, ms)));
   const only = within ? (within.genre === "peliculas" ? "movie" : within.genre === "series" ? "series" : null) : null;
   return cards.filter((c) => !only || c.kind === only).slice(0, 40).map((c) => toItem(c));
 }
 
-export const search = (arg) => searchWithTerms(arg, searchOne);
+// A search has 15 s in all and getPage waits 15 s by default, so one slow answer from the site used up the whole call (the field's
+// "search timeout"). Each request is cut at 6.5 s, and a next term is only tried while there is time for it.
+const SEARCH_REQUEST_MS = 6500;
+const SEARCH_BUDGET_MS = 12500;
+const SEARCH_MIN_LEFT_MS = 3000;
+
+export async function search(arg) {
+  const started = Date.now();
+  return searchWithTerms(arg, (a) => {
+    const left = SEARCH_BUDGET_MS - (Date.now() - started);
+    return left < SEARCH_MIN_LEFT_MS ? [] : searchOne(a, Math.min(SEARCH_REQUEST_MS, left));
+  });
+}
 
 // ---- the plugin's own section, categories and details ----
 

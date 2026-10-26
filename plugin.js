@@ -599,15 +599,24 @@ async function browse(ref, cursor) {
   const { cards, more } = await listPage(def, page);
   return { items: cards.map((c) => toItem(c, def.genreName)), next: more ? String(page + 1) : void 0 };
 }
-async function searchOne(arg) {
+async function searchOne(arg, ms) {
   const q = String((typeof arg === "string" ? arg : arg && arg.q) || "").trim();
   const within = typeof arg === "object" && arg && arg.within ? refOf(arg.within) : null;
   if (q.length < 2) return [];
-  const cards = await cached("s:" + q.toLowerCase(), async () => parseCards(await getPage(`${SITE}/search?q=${encodeURIComponent(q)}`)));
+  const cards = await cached("s:" + q.toLowerCase(), async () => parseCards(await getPage(`${SITE}/search?q=${encodeURIComponent(q)}`, void 0, ms)));
   const only = within ? within.genre === "peliculas" ? "movie" : within.genre === "series" ? "series" : null : null;
   return cards.filter((c) => !only || c.kind === only).slice(0, 40).map((c) => toItem(c));
 }
-var search = (arg) => searchWithTerms(arg, searchOne);
+var SEARCH_REQUEST_MS = 6500;
+var SEARCH_BUDGET_MS = 12500;
+var SEARCH_MIN_LEFT_MS = 3e3;
+async function search(arg) {
+  const started = Date.now();
+  return searchWithTerms(arg, (a) => {
+    const left = SEARCH_BUDGET_MS - (Date.now() - started);
+    return left < SEARCH_MIN_LEFT_MS ? [] : searchOne(a, Math.min(SEARCH_REQUEST_MS, left));
+  });
+}
 async function section({ tab } = {}) {
   const tabs = [{ id: "novedades", label: t("news") }, { id: "peliculas", label: t("movies") }, { id: "series", label: t("series") }, { id: "estrenos", label: t("premieres") }, { id: "generos", label: t("genres") }];
   const chosen = tabs.some((x) => x.id === tab) ? tab : "novedades";
