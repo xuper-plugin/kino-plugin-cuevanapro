@@ -457,8 +457,8 @@ var t = (key) => {
   const lang = String(kino.lang || "").toLowerCase().startsWith("es") ? "es" : "en";
   return STRINGS[lang][key] || STRINGS.es[key] || key;
 };
-async function getPage(url, headers) {
-  const r = await kino.fetch(url, { headers: { "User-Agent": UA, "Accept-Language": "es-MX,es;q=0.9", ...headers || {} }, timeoutMs: 15e3 });
+async function getPage(url, headers, ms) {
+  const r = await kino.fetch(url, { headers: { "User-Agent": UA, "Accept-Language": "es-MX,es;q=0.9", ...headers || {} }, timeoutMs: ms || 15e3 });
   if (!r.ok) throw kino.error("unavailable", `Cuevana ${r.status} ${url}`, { userMessage: t("unavailable") });
   return r.text();
 }
@@ -514,9 +514,9 @@ function refOf(ref) {
   const g = GENRES.find((x) => x[0] === m[2]);
   return g ? { path: "/genero/" + g[0], title: g[1], genre: void 0, genreName: g[1] } : null;
 }
-async function listPage(def, page) {
+async function listPage(def, page, ms) {
   const url = SITE + def.path + (page > 1 ? "/page/" + page : "");
-  const cards = await cached(`l:${def.path}:${page}`, async () => parseCards(await getPage(url)));
+  const cards = await cached(`l:${def.path}:${page}`, async () => parseCards(await getPage(url, void 0, ms)));
   return { cards, more: cards.length >= PAGE };
 }
 var safeRow = async (id, fn) => {
@@ -527,20 +527,70 @@ var safeRow = async (id, fn) => {
     return null;
   }
 };
-async function rowOf(id, ref, genre) {
+async function rowOf(id, ref, genre, ms) {
   const def = refOf(ref);
-  const { cards } = await listPage(def, 1);
+  const { cards } = await listPage(def, 1, ms);
   const items = cards.slice(0, 20).map((c) => toItem(c, def.genreName));
   return items.length ? { id, title: def.title, items, ref, genre: genre || def.genre || "peliculas" } : null;
 }
+var HOME_ROWS = ["peliculas", "series", "estrenos", "sestrenos", "tendencias"];
+var HOME_REQUEST_MS = 8e3;
+var HOME_BUDGET_MS = 14e3;
+var HOME_KEY = "home1";
+var HOME_STALE_MS = 12 * 60 * 60 * 1e3;
+var HOME_MAX_CHARS = 6e4;
+async function settleWithin(tasks, budgetMs) {
+  let done = false;
+  const all = Promise.all(tasks).then(() => {
+    done = true;
+  });
+  const end = Date.now() + budgetMs;
+  const clock = (async () => {
+    while (!done && Date.now() < end) await kino.sleep(Math.min(1e3, Math.max(1, end - Date.now())));
+  })();
+  await Promise.race([all, clock]);
+}
+function loadHome() {
+  try {
+    const store = JSON.parse(kino.storage.get(HOME_KEY) || "null");
+    return store && store.rows && typeof store.rows === "object" ? store.rows : {};
+  } catch (_) {
+    return {};
+  }
+}
+function saveHome(fresh) {
+  const now = Date.now();
+  const rows = {};
+  const old = loadHome();
+  for (const id of Object.keys(old)) if (old[id] && now - old[id].at < HOME_STALE_MS) rows[id] = old[id];
+  for (const row of fresh) rows[row.id] = { at: now, row };
+  try {
+    let text2 = JSON.stringify({ rows });
+    if (text2.length > HOME_MAX_CHARS) {
+      for (const id of Object.keys(rows)) rows[id] = { at: rows[id].at, row: { ...rows[id].row, items: rows[id].row.items.slice(0, 10) } };
+      text2 = JSON.stringify({ rows });
+    }
+    if (text2.length <= HOME_MAX_CHARS) kino.storage.set(HOME_KEY, text2, { ttlMs: HOME_STALE_MS });
+  } catch (_) {
+  }
+}
 async function home() {
-  return (await Promise.all([
-    safeRow("peliculas", () => rowOf("peliculas", "list:peliculas")),
-    safeRow("series", () => rowOf("series", "list:series")),
-    safeRow("estrenos", () => rowOf("estrenos", "list:estrenos")),
-    safeRow("sestrenos", () => rowOf("sestrenos", "list:sestrenos")),
-    safeRow("tendencias", () => rowOf("tendencias", "list:tendencias"))
-  ])).filter(Boolean);
+  const got = new Array(HOME_ROWS.length).fill(null);
+  await settleWithin(HOME_ROWS.map((id, i) => safeRow(id, () => rowOf(id, "list:" + id, void 0, HOME_REQUEST_MS)).then((row) => {
+    got[i] = row;
+  })), HOME_BUDGET_MS);
+  const fresh = got.filter(Boolean);
+  if (fresh.length) saveHome(fresh);
+  const old = loadHome();
+  const now = Date.now();
+  const rows = [];
+  HOME_ROWS.forEach((id, i) => {
+    const kept = old[id];
+    if (got[i]) rows.push(got[i]);
+    else if (kept && kept.row && Array.isArray(kept.row.items) && now - kept.at < HOME_STALE_MS) rows.push(kept.row);
+  });
+  if (rows.length > fresh.length) kino.log("home: " + (rows.length - fresh.length) + " row(s) from the saved copy");
+  return rows;
 }
 async function browse(ref, cursor) {
   const def = refOf(ref);
