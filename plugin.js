@@ -394,6 +394,7 @@ async function playable(kino2, out, ms = 6e3) {
 }
 
 // src/plugin.js
+globalThis.__kinoDropPendingFetches = true;
 var CACHE_MS = 10 * 60 * 1e3;
 var RESOLVE_MS = 6e4;
 var CAPTURE_MS = 2e4;
