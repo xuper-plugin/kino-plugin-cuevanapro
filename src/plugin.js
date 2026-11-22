@@ -283,14 +283,16 @@ function pageOf(ref) {
   return m ? `${SITE}/episodio/${m[1]}-temporada-${m[2]}-episodio-${m[3]}` : null;
 }
 
-/** The servers of a page in the order to try them: the preferred language first, then the ones opened with plain requests; DoodStream is left out (it refuses). */
+/** The servers of a page in the order to try them: the preferred language first, then the ones opened with plain requests.
+ *  Nothing is dropped up front -- the shared resolver covers DoodStream and many more, and a host it does not know inline
+ *  is still handed to the WebView capture. */
 function plan(servers) {
   let pref = "latino";
   try { pref = String(kino.config.get("audio") || "latino"); } catch (_) { pref = "latino"; }
   const lang = (s) => { const i = LANGS.indexOf(s.lang); return s.lang === pref ? -1 : i < 0 ? LANGS.length : i; };
   const cost = (s) => (/streamwish/i.test(s.host) ? 0 : /vidhide/i.test(s.host) ? 1 : 2);
   // `_lt` (the language tier) rides along so resolve can learn a better server order inside each language without disturbing it.
-  return servers.filter((s) => !/dood/i.test(s.host)).map((s, i) => ({ ...s, i, _lt: lang(s) })).sort((a, b) => a._lt - b._lt || cost(a) - cost(b) || a.i - b.i).slice(0, MAX_COPIES);
+  return servers.map((s, i) => ({ ...s, i, _lt: lang(s) })).sort((a, b) => a._lt - b._lt || cost(a) - cost(b) || a.i - b.i).slice(0, MAX_COPIES);
 }
 
 // ---- learned server reliability (kept in storage; inside a language, the server that opens for this person is tried first next time) ----

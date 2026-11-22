@@ -1064,7 +1064,7 @@ function plan(servers) {
     return s.lang === pref ? -1 : i < 0 ? LANGS.length : i;
   };
   const cost = (s) => /streamwish/i.test(s.host) ? 0 : /vidhide/i.test(s.host) ? 1 : 2;
-  return servers.filter((s) => !/dood/i.test(s.host)).map((s, i) => ({ ...s, i, _lt: lang(s) })).sort((a, b) => a._lt - b._lt || cost(a) - cost(b) || a.i - b.i).slice(0, MAX_COPIES);
+  return servers.map((s, i) => ({ ...s, i, _lt: lang(s) })).sort((a, b) => a._lt - b._lt || cost(a) - cost(b) || a.i - b.i).slice(0, MAX_COPIES);
 }
 var STATS_KEY = "srvStats";
 var STATS_CAP = 24;
