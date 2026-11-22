@@ -4,8 +4,9 @@
 // each server's video address. StreamWish and VidHide open with plain requests (./extractors); VOE goes through the hidden browser.
 
 import { SITE, GENRES, parseCards, parseTitle, parseServers, parsePlayer } from "./cuevana.js";
-import { extractorFor } from "./extractors/index.js";
 import { makeReq, UA } from "./util/http.js";
+import { makeBrowse } from "./browse/index.js";
+import { RESOLVER_REPO, resolveViaHelper, resolverInstalled } from "./resolve-door.js";
 import { searchWithTerms } from "./util/terms.js";
 import { playable } from "./util/probe.js";
 
@@ -34,6 +35,7 @@ const STRINGS = {
     heroText: "Películas y series en español latino, con estrenos al día.",
     unavailable: "El servicio no está disponible en este momento.", noEpisodes: "No se encontraron episodios de esta serie.", noStreams: "Ningún servidor de este título abrió. Prueba más tarde.",
     statusLine: "Listas guardadas: {n}", cacheCleared: "Caché vaciada.",
+    needResolver: "Para reproducir, abre Cuevana Pro desde el menú e instala el motor de reproducción que te pedirá.",
   },
   en: {
     news: "What's new", movies: "Movies", series: "Series", genres: "Genres", premieres: "Premieres", updatedMovies: "Updated movies", updatedSeries: "Updated series",
@@ -42,6 +44,7 @@ const STRINGS = {
     heroText: "Movies and series in Latin American Spanish, with new releases.",
     unavailable: "The service is not available right now.", noEpisodes: "No episodes found for this series.", noStreams: "No server of this title opened. Try again later.",
     statusLine: "Lists kept: {n}", cacheCleared: "Cache cleared.",
+    needResolver: "To play, open Cuevana Pro from the menu and install the playback engine it asks for.",
   },
 };
 const t = (key) => {
@@ -286,7 +289,26 @@ function plan(servers) {
   try { pref = String(kino.config.get("audio") || "latino"); } catch (_) { pref = "latino"; }
   const lang = (s) => { const i = LANGS.indexOf(s.lang); return s.lang === pref ? -1 : i < 0 ? LANGS.length : i; };
   const cost = (s) => (/streamwish/i.test(s.host) ? 0 : /vidhide/i.test(s.host) ? 1 : 2);
-  return servers.filter((s) => !/dood/i.test(s.host)).map((s, i) => ({ ...s, i })).sort((a, b) => lang(a) - lang(b) || cost(a) - cost(b) || a.i - b.i).slice(0, MAX_COPIES);
+  // `_lt` (the language tier) rides along so resolve can learn a better server order inside each language without disturbing it.
+  return servers.filter((s) => !/dood/i.test(s.host)).map((s, i) => ({ ...s, i, _lt: lang(s) })).sort((a, b) => a._lt - b._lt || cost(a) - cost(b) || a.i - b.i).slice(0, MAX_COPIES);
+}
+
+// ---- learned server reliability (kept in storage; inside a language, the server that opens for this person is tried first next time) ----
+const STATS_KEY = "srvStats";
+const STATS_CAP = 24; // halve the counts past this, so a server that recovers climbs back
+function readStats() { try { const o = JSON.parse(kino.storage.get(STATS_KEY) || "{}"); return o && typeof o === "object" ? o : {}; } catch (_) { return {}; } }
+/** Laplace-smoothed success rate of a server host (unknown = 0.5). */
+function scoreOf(id, stats) { const s = stats[id] || { ok: 0, fail: 0 }; return (s.ok + 1) / (s.ok + s.fail + 2); }
+/** Record that a server opened (ok=true) or not; never throws. */
+function noteServer(id, ok) {
+  try {
+    const stats = readStats();
+    const s = stats[id] || { ok: 0, fail: 0 };
+    s[ok ? "ok" : "fail"] += 1;
+    if (s.ok + s.fail > STATS_CAP) { s.ok = Math.round(s.ok / 2); s.fail = Math.round(s.fail / 2); }
+    stats[id] = s;
+    kino.storage.set(STATS_KEY, JSON.stringify(stats));
+  } catch (_) { /* the stats are a nicety */ }
 }
 
 async function open(server, req, budget) {
@@ -294,18 +316,11 @@ async function open(server, req, budget) {
   if (!player.ok) return null;
   const embed = parsePlayer(await player.text());
   if (!embed) return null;
-  const ex = extractorFor(embed);
-  if (ex) {
-    const out = await ex.extract(embed, req, kino);
-    if (out !== undefined) return out; // undefined: the extractor cannot reach its host from here, so the hidden browser may try
-  }
-  if (!kino.browser || typeof kino.browser.capture !== "function" || budget.captures <= 0) return null;
-  budget.captures -= 1;
-  const page = await kino.browser.capture(embed, { timeoutMs: CAPTURE_MS, match: "\\.m3u8|\\.mp4", headers: { Referer: SITE + "/" } });
-  const media = (page && page.media) || [];
-  const best = media.find((x) => /m3u8/i.test(x.url)) || media[0];
-  if (!best) return null;
-  return { captured: true, url: best.url, mime: best.mime || (/\.mp4/i.test(best.url) ? "video/mp4" : HLS), headers: best.headers || { Referer: embed } };
+  // Every hoster embed goes to the shared kino-resolver (door), with a WebView capture fallback for gated hosts
+  // (e.g. VOE) while this call still has capture budget. A `captured` stream skips the playable() probe in resolve().
+  const out = await resolveViaHelper(embed, kino, SITE + "/", budget.captures > 0);
+  if (out && out.captured) budget.captures -= 1;
+  return out;
 }
 
 const labelOf = (s) => `${t(s.lang)} · ${SERVER_NAME[s.host.toLowerCase()] || s.host}`;
@@ -317,28 +332,36 @@ export async function resolve(ref) {
   const only = m ? Number(m[2]) : null;
   const pageUrl = pageOf(base);
   if (!pageUrl) throw kino.error("not_found", "unknown ref: " + ref);
+  if (!(await resolverInstalled(kino))) throw kino.error("unavailable", "resolver missing", { userMessage: t("needResolver") });
   const servers = plan(parseServers(await getPage(pageUrl, { Referer: SITE + "/" })));
   if (!servers.length) throw kino.error("not_found", "no servers on " + pageUrl, { userMessage: t("noStreams") });
   const req = makeReq(kino, { deadline: Date.now() + RESOLVE_MS });
   const budget = { captures: MAX_CAPTURES };
+  // Auto pick: keep the plan's language tiers, but inside each try the server that has opened for this person first.
+  // The cp:<base>@<i> indices and the alternatives stay in the stable plan order, so a saved copy ref always holds.
+  const stats = readStats();
+  const order = only != null ? [only] : servers.map((_, k) => k).sort((a, b) => servers[a]._lt - servers[b]._lt || scoreOf(servers[b].host, stats) - scoreOf(servers[a].host, stats) || a - b);
   const failures = [];
-  for (const i of only != null ? [only] : servers.map((_, k) => k)) {
+  for (const i of order) {
     const s = servers[i];
     if (!s) continue;
     try {
       const out = await open(s, req, budget);
-      if (!out) { failures.push(`${s.host}: no stream`); continue; }
-      if (!out.captured && !(await playable(kino, { url: out.url, headers: { "User-Agent": UA, ...(out.headers || {}) } }))) { failures.push(`${s.host}: address does not answer`); continue; }
+      if (!out) { failures.push(`${s.host}: no stream`); noteServer(s.host, false); continue; }
+      if (!out.captured && !(await playable(kino, { url: out.url, headers: { "User-Agent": UA, ...(out.headers || {}) } }))) { failures.push(`${s.host}: address does not answer`); noteServer(s.host, false); continue; }
+      noteServer(s.host, true);
       const stream = { url: out.url, mime: out.mime, headers: { "User-Agent": UA, ...(out.headers || {}) }, label: labelOf(s) };
       if (out.subtitles) stream.subtitles = out.subtitles;
       if (out.durationMs) stream.durationMs = out.durationMs;
       if (only == null) {
         const others = servers.map((_, j) => j).filter((j) => j !== i);
         if (others.length) stream.alternatives = others.map((j) => ({ ref: `c:${base}@${j}`, label: labelOf(servers[j]) }));
+        try { browseScreen().notePlayed(base); } catch (_) { /* never fails a play */ }
       }
       return stream;
     } catch (e) {
       failures.push(`${s.host}: ${(e && e.code) || ""} ${(e && e.message) || e}`.trim());
+      noteServer(s.host, false);
     }
   }
   kino.log(`resolve ${base} failed: ${failures.join("; ")}`);
@@ -359,4 +382,62 @@ export async function action(key) {
     return { message: t("cacheCleared") };
   }
   return { message: "" };
+}
+
+// ---- browse screen + Kino Resolver install gate ----
+
+const SUPPORT_URL = "https://ko-fi.com/xuperplugins";
+
+/** The donate affordance under every install button: a QR on TV (a TV can't open a link well), a heart button on phone/desktop. */
+function supportNode(device) {
+  if (device === "tv") return { type: "QrImage", value: SUPPORT_URL, size: "large", labelText: "Si te gusta mi trabajo, escanéalo y apóyame", labelTextEn: "If you like my work, scan it and support me" };
+  return { type: "ElevatedButton", key: "donate", icon: "heart", labelText: "Si te gusta mi trabajo, apóyame", labelTextEn: "If you like my work, support me", onPressed: { go: { url: { href: SUPPORT_URL } } } };
+}
+
+/** The install gate: the first screen while the shared kino-resolver (the engine Cuevana Pro plays through) is not installed.
+ *  The donate button sits under the install button, as on every gate. */
+function installGateView(device) {
+  return { type: "Scaffold", key: "cuevanapro-install",
+    body: { type: "SingleChildScrollView", key: "installScroll", children: [
+      { type: "Column", padding: 24, gap: 16, crossAxisAlignment: "stretch", children: [
+        { type: "Text", text: "Necesitas el motor de reproducción", textEn: "You need the playback engine", style: "h3" },
+        { type: "Text", color: "secondary", text: "Cuevana Pro reproduce a través de Kino Resolver (gratis). Instálalo una vez y sirve para este y para otros plugins de sitios.", textEn: "Cuevana Pro plays through Kino Resolver (free). Install it once and it works here and in other site plugins." },
+        { type: "ElevatedButton", key: "installResolver", labelText: "Instalar Kino Resolver", labelTextEn: "Install Kino Resolver", onPressed: { go: { installPlugin: { repo: RESOLVER_REPO } } } },
+        supportNode(device),
+      ] },
+    ] },
+  };
+}
+
+/** The tabs of the own browse screen: the same ones section() serves (Novedades / Películas / Series / Estrenos / Géneros). */
+const SCREEN_TABS = [
+  { id: "novedades", es: "Novedades", en: "What's new" },
+  { id: "peliculas", es: "Películas", en: "Movies" },
+  { id: "series", es: "Series", en: "Series" },
+  { id: "estrenos", es: "Estrenos", en: "Premieres" },
+  { id: "generos", es: "Géneros", en: "Genres" },
+];
+
+let browseInstance = null;
+const browseScreen = () => (browseInstance ??= makeBrowse({
+  kino,
+  brand: "Cuevana Pro",
+  tabs: SCREEN_TABS,
+  loadTab: async (tabId) => ({ rows: (await section({ tab: tabId })).rows }),
+  searchTitles: (q) => search({ q }),
+  canPlay: false,
+}));
+
+/** `screen(ctx)`: the install gate while the resolver is missing, the rich browse screen (its own home/section rows) once it is there. */
+export async function screen(ctx) {
+  await null;
+  const c = ctx && typeof ctx === "object" ? ctx : {};
+  if (!(c.installed && c.installed[RESOLVER_REPO])) return installGateView(c.device);
+  return browseScreen().view(c);
+}
+
+/** `screenEvent(ev)`: the screen's events (its timers load a tab or a search, one per call). */
+export async function screenEvent(ev) {
+  await null;
+  return browseScreen().event(ev && typeof ev === "object" ? ev : {});
 }
