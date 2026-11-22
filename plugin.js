@@ -759,12 +759,13 @@ async function searchWithTerms(arg, one) {
 }
 
 // src/util/probe.js
+var PEEK_BYTES = 2048;
 async function playable(kino2, out, ms = 6e3) {
   try {
-    const r = await kino2.fetch(out.url, { headers: { ...out.headers || {} }, timeoutMs: ms });
-    return r.ok || r.status === 401 || r.status === 403;
+    const r = await kino2.fetch(out.url, { headers: { Range: `bytes=0-${PEEK_BYTES - 1}`, ...out.headers || {} }, timeoutMs: ms, maxBytes: PEEK_BYTES });
+    return r.ok || r.status === 401 || r.status === 403 || r.status === 416;
   } catch (e) {
-    return !!(e && e.code === "host_not_allowed");
+    return !!(e && (e.code === "host_not_allowed" || e.code === "too_large"));
   }
 }
 
