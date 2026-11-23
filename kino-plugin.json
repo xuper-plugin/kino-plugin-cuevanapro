@@ -1,8 +1,8 @@
 {
   "id": "cuevanapro",
   "name": "Cuevana Pro",
-  "version": "0.4.5",
-  "apiVersion": 20,
+  "version": "0.5.0",
+  "apiVersion": 30,
   "entry": "plugin.js",
   "icon": "icon.png",
   "description": "Películas y series en español latino, castellano o en su idioma original de Cuevana (cuevana3.eu): sección propia, géneros, estrenos, tendencias, búsqueda y varios servidores por título.",
