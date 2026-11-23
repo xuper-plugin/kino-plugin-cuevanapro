@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.4
+
+- Back closes the search box (the screen declares onBack while searching) instead of the whole screen (std 1.6.1)
+
 ## 0.5.3
 
 - Tabs load again: the previous version used a timer Kino does not have, so every tab failed; a tab Kino cut short now offers Retry (std 1.6.0)
