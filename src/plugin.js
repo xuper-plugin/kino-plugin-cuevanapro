@@ -6,6 +6,7 @@
 import { SITE, GENRES, parseCards, parseTitle, parseServers, parsePlayer } from "./cuevana.js";
 import { makeReq, UA } from "./util/http.js";
 import { makeStandardScreen } from "./std/index.js";
+import { rankServers } from "./std/rank.js";
 import { LOGO, LOGO_ASPECT } from "./logo.js";
 import { resolveViaHelper, resolverInstalled } from "./resolve-door.js";
 import { searchWithTerms } from "./util/terms.js";
@@ -299,13 +300,14 @@ function pageOf(ref) {
 /** The servers of a page in the order to try them: the preferred language first, then the ones opened with plain requests.
  *  Nothing is dropped up front -- the shared resolver covers DoodStream and many more, and a host it does not know inline
  *  is still handed to the WebView capture. */
-function plan(servers) {
+async function plan(servers) {
   let pref = "latino";
   try { pref = String(kino.config.get("audio") || "latino"); } catch (_) { pref = "latino"; }
   const lang = (s) => { const i = LANGS.indexOf(s.lang); return s.lang === pref ? -1 : i < 0 ? LANGS.length : i; };
-  const cost = (s) => (/streamwish/i.test(s.host) ? 0 : /vidhide/i.test(s.host) ? 1 : 2);
+  // Inside a language, the hoster kino-resolver ranks best (its rank call, from the playback audit; Waaw's human check last).
   // `_lt` (the language tier) rides along so resolve can learn a better server order inside each language without disturbing it.
-  return servers.map((s, i) => ({ ...s, i, _lt: lang(s) })).sort((a, b) => a._lt - b._lt || cost(a) - cost(b) || a.i - b.i).slice(0, MAX_COPIES);
+  const ranked = await rankServers(kino, servers, (s) => s.host, lang);
+  return ranked.map((s, i) => ({ ...s, i, _lt: lang(s) })).slice(0, MAX_COPIES);
 }
 
 // ---- learned server reliability (kept in storage; inside a language, the server that opens for this person is tried first next time) ----
@@ -347,7 +349,7 @@ export async function resolve(ref) {
   const pageUrl = pageOf(base);
   if (!pageUrl) throw kino.error("not_found", "unknown ref: " + ref);
   if (!(await resolverInstalled(kino))) throw kino.error("unavailable", "resolver missing", { userMessage: t("needResolver") });
-  const servers = plan(parseServers(await getPage(pageUrl, { Referer: SITE + "/" })));
+  const servers = await plan(parseServers(await getPage(pageUrl, { Referer: SITE + "/" })));
   if (!servers.length) throw kino.error("not_found", "no servers on " + pageUrl, { userMessage: t("noStreams") });
   const req = makeReq(kino, { deadline: Date.now() + RESOLVE_MS });
   const budget = { captures: MAX_CAPTURES, deadline: Date.now() + RESOLVE_MS };
