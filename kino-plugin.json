@@ -1,7 +1,7 @@
 {
   "id": "cuevanapro",
   "name": "Cuevana Pro",
-  "version": "0.4.4",
+  "version": "0.4.5",
   "apiVersion": 20,
   "entry": "plugin.js",
   "icon": "icon.png",
