@@ -1,11 +1,11 @@
 {
   "id": "cuevanapro",
   "name": "Cuevana Pro",
-  "version": "0.4.3",
+  "version": "0.4.4",
   "apiVersion": 20,
   "entry": "plugin.js",
   "icon": "icon.png",
-  "description": "PelÃ­culas y series en espaÃ±ol latino, castellano o en su idioma original de Cuevana (cuevana3.eu): secciÃ³n propia, gÃ©neros, estrenos, tendencias, bÃºsqueda y varios servidores por tÃ­tulo.",
+  "description": "Películas y series en español latino, castellano o en su idioma original de Cuevana (cuevana3.eu): sección propia, géneros, estrenos, tendencias, búsqueda y varios servidores por título.",
   "author": "xuper-plugin",
   "homepage": "https://github.com/xuper-plugin/kino-plugin-cuevanapro",
   "hosts": [
@@ -67,7 +67,7 @@
       "type": "section",
       "label": "Idioma",
       "labelEn": "Language",
-      "hint": "Cada tÃ­tulo puede traer varios idiomas; Kino abre primero el que elijas y, si falla, los demÃ¡s.",
+      "hint": "Cada título puede traer varios idiomas; Kino abre primero el que elijas y, si falla, los demás.",
       "hintEn": "A title may come in several languages; Kino opens the one you pick first and, if it fails, the others."
     },
     {
@@ -89,7 +89,7 @@
         },
         {
           "value": "english",
-          "label": "InglÃ©s",
+          "label": "Inglés",
           "labelEn": "English"
         }
       ]
@@ -103,9 +103,9 @@
     {
       "key": "clearCache",
       "type": "action",
-      "label": "Vaciar cachÃ©",
+      "label": "Vaciar caché",
       "labelEn": "Clear cache",
-      "confirm": "Â¿Vaciar la cachÃ© de listas?",
+      "confirm": "¿Vaciar la caché de listas?",
       "confirmEn": "Clear the list cache?"
     }
   ],
