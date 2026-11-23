@@ -1,7 +1,7 @@
 {
   "id": "cuevanapro",
   "name": "Cuevana Pro",
-  "version": "0.5.6",
+  "version": "0.5.7",
   "apiVersion": 30,
   "entry": "plugin.js",
   "icon": "icon.png",
@@ -167,6 +167,6 @@
   },
   "signature": {
     "authorKey": "6693946bd5c56196960959c4b9665fad5094374bcb85ddb282f8bf762c835263",
-    "value": "f946423de08d4ce12fa12f2e149776846d988d6b54becf062dc630b1949b361f5f6049cba8327ecdef71b660a25ab10c654109342a6870d4447188ccb606ba0f"
+    "value": "586d9f056c5d6cc7c807db637348ce09f02db865d4d22fb5bcea8e7d0f874642aa20e615381ae54bcde5b9f60f50ed26c86bc33260878fb498d416fb65329c09"
   }
 }
