@@ -1,7 +1,7 @@
 {
   "id": "cuevanapro",
   "name": "Cuevana Pro",
-  "version": "0.5.5",
+  "version": "0.5.6",
   "apiVersion": 30,
   "entry": "plugin.js",
   "icon": "icon.png",
@@ -137,5 +137,36 @@
   },
   "recommends": [
     "xuper-plugin/kino-plugin-kino-resolver"
-  ]
+  ],
+  "provides": {
+    "catalog": {
+      "summary": "Titles this plugin finds, for the author's other plugins",
+      "calls": {
+        "search": {
+          "in": {
+            "q": "string",
+            "type": "string?"
+          },
+          "out": "Item[]"
+        }
+      },
+      "types": {
+        "Item": {
+          "id": "string",
+          "ref": "string",
+          "title": "string",
+          "kind": "string",
+          "poster": "string?",
+          "backdrop": "string?",
+          "year": "string?",
+          "overview": "string?",
+          "tmdb": "number?"
+        }
+      }
+    }
+  },
+  "signature": {
+    "authorKey": "6693946bd5c56196960959c4b9665fad5094374bcb85ddb282f8bf762c835263",
+    "value": "f946423de08d4ce12fa12f2e149776846d988d6b54becf062dc630b1949b361f5f6049cba8327ecdef71b660a25ab10c654109342a6870d4447188ccb606ba0f"
+  }
 }
