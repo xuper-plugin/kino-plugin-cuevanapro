@@ -7,11 +7,21 @@
  * reading it whole ran into the timeout or Kino's body cap, so a server that plays was thrown away after 6 s of waiting.
  */
 const PEEK_BYTES = 2048;
-export async function playable(kino, out, ms = 6000) {
+/**
+ * What a peek says about a stream: "ok" (it answers, or refuses with a token-bound 401/403), "dead" (an error status, a broken
+ * host) or "slow" (no answer within [ms]). A slow CDN is not a dead one (a Redmi took 4.3 s for one TLS handshake, then played),
+ * so resolve() keeps a slow stream as the last resort instead of throwing it away.
+ */
+export async function peek(kino, out, ms = 6000) {
   try {
     const r = await kino.fetch(out.url, { headers: { Range: `bytes=0-${PEEK_BYTES - 1}`, ...(out.headers || {}) }, timeoutMs: ms, maxBytes: PEEK_BYTES });
-    return r.ok || r.status === 401 || r.status === 403 || r.status === 416;
+    return r.ok || r.status === 401 || r.status === 403 || r.status === 416 ? "ok" : "dead";
   } catch (e) {
-    return !!(e && (e.code === "host_not_allowed" || e.code === "too_large"));
+    if (e && (e.code === "host_not_allowed" || e.code === "too_large")) return "ok";
+    return e && e.code === "timeout" ? "slow" : "dead";
   }
+}
+
+export async function playable(kino, out, ms = 6000) {
+  return (await peek(kino, out, ms)) === "ok";
 }
