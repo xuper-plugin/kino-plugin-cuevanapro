@@ -26,6 +26,8 @@ globalThis.kino = {
   plugins: { call: async (alias, method, args) => {
     if (method === "normalizeHost") return { host: "x" };
     if (method === "resolve") return door(args.url);
+    // kino-resolver 0.0.36+ ranks hosters (StreamWish/VidHide 95, DoodStream 80, VOE 72); names are what this site hands out
+    if (method === "rank") return { scores: args.urls.map((u) => ({ streamwish: 95, vidhide: 95, doodstream: 80, voesx: 72 })[u] ?? 10) };
     throw kino.error("not_declared", method);
   } },
   browser: { capture: async (url, opts) => { captures.push({ url, opts }); return captureImpl(url); } },
