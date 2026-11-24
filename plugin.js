@@ -936,6 +936,11 @@ function makeStandardScreen({ kino: kino2, name, nameEn, logo = null, logoAspect
 }
 
 // src/std/rank.js
+var NEVER_OFFER = /waaw|netu|hqq\./i;
+function offered(url, score) {
+  if (NEVER_OFFER.test(String(url || ""))) return false;
+  return !(typeof score === "number" && score < 0);
+}
 async function scoresFromResolver(kino2, urls) {
   if (!Array.isArray(urls) || urls.length === 0) return null;
   try {
@@ -948,7 +953,7 @@ async function scoresFromResolver(kino2, urls) {
 }
 async function rankServers(kino2, list, urlOf, groupOf = () => 0) {
   const scores = await scoresFromResolver(kino2, list.map(urlOf));
-  return list.map((x, i) => ({ x, i, g: groupOf(x), s: scores && i < scores.length ? scores[i] : 0 })).sort((a, b) => a.g - b.g || b.s - a.s || a.i - b.i).map((o) => o.x);
+  return list.map((x, i) => ({ x, i, g: groupOf(x), s: scores && i < scores.length ? scores[i] : 0 })).filter((o) => offered(urlOf(o.x), scores && o.i < scores.length ? scores[o.i] : null)).sort((a, b) => a.g - b.g || b.s - a.s || a.i - b.i).map((o) => o.x);
 }
 
 // src/logo.js
