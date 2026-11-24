@@ -247,8 +247,31 @@ export async function section({ tab } = {}) {
   return answer;
 }
 
+/**
+ * One backdrop per Categorías tile: a well-known title of the genre, its TMDB image path at w780 (each checked with a
+ * request to image.tmdb.org: 200, image/jpeg). Static on purpose: `categories()` asks nothing of the network. Keys are the
+ * site's own slugs; a slug not listed gets no art (Kino draws its plain tile). Kino draws a tile's picture from `art`.
+ */
+const TILE_ART_SIZE = "w780";
+const GENRE_ART = {
+  accion: "/gqrnQA6Xppdl8vIb2eJc58VC1tW.jpg", // Mad Max: Fury Road
+  animacion: "/g7CHF8gTLGooTbP4GznIGwaqAGL.jpg", // Coco
+  aventura: "/zPACwR32amTNvzId9qyapCWXYDJ.jpg", // Raiders of the Lost Ark
+  "ciencia-ficcion": "/xJHokMbljvjADYdit5fK5VQsXEG.jpg", // Interstellar
+  crimen: "/ejdD20cdHNFAYAN2DlqPToXKyzx.jpg", // The Godfather
+  drama: "/pNjh59JSxChQktamG3LMp9ZoQzp.jpg", // The Shawshank Redemption
+  familia: "/iJgNOTSBNrC90U2xyYq9ln0b35o.jpg", // Paddington 2
+  fantasia: "/oiwc338EoBgS4sEI2ixAny4KQKg.jpg", // The Fellowship of the Ring
+  misterio: "/4HWAQu28e2yaWrtupFPGFkdNU7V.jpg", // Knives Out
+  romance: "/zdXnJqBaGFVtLoPNuMeKfEYUViZ.jpg", // The Notebook
+  suspense: "/iWak7wT0j6ycCc8lKr4NBz9c7n5.jpg", // Gone Girl
+  terror: "/nHRUtBwFNnNN70vcQ7lAsjc2T6S.jpg", // A Quiet Place
+};
+const tileArt = (table, slug) => (table[slug] ? "https://image.tmdb.org/t/p/" + TILE_ART_SIZE + table[slug] : undefined);
+const withArt = (tile, art) => (art ? { ...tile, art } : tile);
+
 export async function categories() {
-  return GENRES.map(([slug, name]) => ({ id: "g-" + slug, title: name, ref: "genre:" + slug }));
+  return GENRES.map(([slug, name]) => (withArt({ id: "g-" + slug, title: name, ref: "genre:" + slug }, tileArt(GENRE_ART, slug))));
 }
 
 const slugOf = (ref, prefix) => { const m = new RegExp(`^${prefix}:([a-z0-9-]+)$`).exec(String(ref || "")); return m ? m[1] : null; };
