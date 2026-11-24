@@ -1131,6 +1131,7 @@ var STRINGS = {
     updatedSeries: "Series actualizadas",
     premiereMovies: "Pel\xEDculas estrenos",
     premiereSeries: "Series estrenos",
+    kids: "Infantil",
     trendingMovies: "Pel\xEDculas en tendencia",
     trendingSeries: "Series en tendencia",
     more: "M\xE1s",
@@ -1157,6 +1158,7 @@ var STRINGS = {
     updatedSeries: "Updated series",
     premiereMovies: "Movie premieres",
     premiereSeries: "Series premieres",
+    kids: "Kids",
     trendingMovies: "Trending movies",
     trendingSeries: "Trending series",
     more: "More",
@@ -1223,7 +1225,8 @@ var LISTS = {
   tendencias: { path: "/peliculas/tendencias/semana", titleKey: "trendingMovies", genre: "peliculas" },
   series: { path: "/series", titleKey: "updatedSeries", genre: "series" },
   sestrenos: { path: "/series/estrenos", titleKey: "premiereSeries", genre: "series" },
-  stendencias: { path: "/series/tendencias/semana", titleKey: "trendingSeries", genre: "series" }
+  stendencias: { path: "/series/tendencias/semana", titleKey: "trendingSeries", genre: "series" },
+  infantil: { path: "/genero/familia", titleKey: "kids", genre: "infantil" }
 };
 function refOf(ref) {
   const m = /^(list|genre):([a-z0-9-]+)$/.exec(String(ref || ""));
@@ -1254,7 +1257,8 @@ async function rowOf(id, ref, genre, ms) {
   const items = cards.slice(0, 20).map((c) => toItem(c, def.genreName));
   return items.length ? { id, title: def.title, items, ref, genre: genre || def.genre || "peliculas" } : null;
 }
-var HOME_ROWS = ["peliculas", "series", "estrenos", "sestrenos", "tendencias"];
+var HOME_ROWS = ["peliculas", "series", "estrenos", "sestrenos", "tendencias", "infantil"];
+var homeRowTags = () => Object.fromEntries(HOME_ROWS.map((id) => [id, refOf("list:" + id).genre]));
 var HOME_REQUEST_MS = 8e3;
 var HOME_BUDGET_MS = 14e3;
 var HOME_KEY = "home1";
@@ -1590,12 +1594,14 @@ async function screenEvent(ev) {
 }
 var proto_catalog_search = catalogDoor(search);
 export {
+  HOME_ROWS,
   action,
   browse,
   categories,
   details,
   episodes,
   home,
+  homeRowTags,
   proto_catalog_search,
   resolve,
   screen,

@@ -44,7 +44,7 @@ const HLS = "application/vnd.apple.mpegurl";
 const STRINGS = {
   es: {
     news: "Novedades", movies: "Películas", series: "Series", genres: "Géneros", premieres: "Estrenos", updatedMovies: "Películas actualizadas", updatedSeries: "Series actualizadas",
-    premiereMovies: "Películas estrenos", premiereSeries: "Series estrenos", trendingMovies: "Películas en tendencia", trendingSeries: "Series en tendencia", more: "Más",
+    premiereMovies: "Películas estrenos", premiereSeries: "Series estrenos", kids: "Infantil", trendingMovies: "Películas en tendencia", trendingSeries: "Series en tendencia", more: "Más",
     latino: "Latino", spanish: "Castellano", english: "Inglés", japanese: "Japonés", episode: "Episodio",
     heroText: "Películas y series en español latino, con estrenos al día.",
     unavailable: "El servicio no está disponible en este momento.", noEpisodes: "No se encontraron episodios de esta serie.", noStreams: "Ningún servidor de este título abrió. Prueba más tarde.",
@@ -53,7 +53,7 @@ const STRINGS = {
   },
   en: {
     news: "What's new", movies: "Movies", series: "Series", genres: "Genres", premieres: "Premieres", updatedMovies: "Updated movies", updatedSeries: "Updated series",
-    premiereMovies: "Movie premieres", premiereSeries: "Series premieres", trendingMovies: "Trending movies", trendingSeries: "Trending series", more: "More",
+    premiereMovies: "Movie premieres", premiereSeries: "Series premieres", kids: "Kids", trendingMovies: "Trending movies", trendingSeries: "Trending series", more: "More",
     latino: "Latino", spanish: "Castilian", english: "English", japanese: "Japanese", episode: "Episode",
     heroText: "Movies and series in Latin American Spanish, with new releases.",
     unavailable: "The service is not available right now.", noEpisodes: "No episodes found for this series.", noStreams: "No server of this title opened. Try again later.",
@@ -110,6 +110,7 @@ const LISTS = {
   series: { path: "/series", titleKey: "updatedSeries", genre: "series" },
   sestrenos: { path: "/series/estrenos", titleKey: "premiereSeries", genre: "series" },
   stendencias: { path: "/series/tendencias/semana", titleKey: "trendingSeries", genre: "series" },
+  infantil: { path: "/genero/familia", titleKey: "kids", genre: "infantil" },
 };
 
 /** `{ path, title, genre }` for a browse ref ("list:<name>" or "genre:<slug>"); null for anything else. */
@@ -141,7 +142,11 @@ async function rowOf(id, ref, genre, ms) {
 // Home has 20 s and the site answers slowly (or not at all) from many devices: before, one slow row held all five until the call
 // was cut. Now each request is cut at 8 s, Home answers with the rows that are in by 14 s, and a row that did not arrive (or the
 // whole Home when the site is down) comes from the last good copy of that row, kept up to 12 h.
-const HOME_ROWS = ["peliculas", "series", "estrenos", "sestrenos", "tendencias"];
+/** The Home's rows (each LISTS entry's `genre` is the type Kino files it under: Películas, Series, Infantil from the Familia genre; the site has no anime section). */
+export const HOME_ROWS = ["peliculas", "series", "estrenos", "sestrenos", "tendencias", "infantil"];
+
+/** The type tag each Home row carries, by row id. */
+export const homeRowTags = () => Object.fromEntries(HOME_ROWS.map((id) => [id, refOf("list:" + id).genre]));
 const HOME_REQUEST_MS = 8000;
 const HOME_BUDGET_MS = 14000;
 const HOME_KEY = "home1";
